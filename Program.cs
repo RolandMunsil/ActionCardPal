@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 using static System.Reflection.Metadata.BlobBuilder;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System;
 
 namespace ActionCardPal
 {
@@ -204,12 +205,11 @@ namespace ActionCardPal
 
         static void RenderStack(CardStack cstack, Vector2 bottomLeft)
         {
-            ImGui.SetCursorPosX(bottomLeft.X);
-
             int dy = 0;
 
             foreach (Card card in cstack.CardsBottomToTop)
             {
+                ImGui.SetCursorPosX(bottomLeft.X);
                 ImGui.SetCursorPosY(bottomLeft.Y - CARD_HEIGHT - dy);
                 RenderCard(card);
 
@@ -226,14 +226,13 @@ namespace ActionCardPal
 
         class Actor
         {
-            // TODO color?
-
             public Actor(string name)
             {
                 this.name = name;
             }
 
             public string name;
+            public Vector3 color = new Vector3(0, 0, 0);
             public CardStack cstack = new CardStack();
 
             private Card? lastSelectedCard;
@@ -257,7 +256,8 @@ namespace ActionCardPal
             }
         }
 
-        static List<Actor> actors = new List<Actor>();
+        static List<List<Actor>> actorRows = new List<List<Actor>>() { new List<Actor>() { } };
+        static IEnumerable<Actor> Actors => actorRows.SelectMany(l => l);
 
         static ImFontPtr FONT_DEFAULT;
         static ImFontPtr FONT_ACTOR_NAMES;
@@ -349,6 +349,8 @@ namespace ActionCardPal
             }
         }
 
+        // TODO a way to mark an actor as out of the fight without removing them?
+
         static void RenderUI()
         {
             ImGuiViewportPtr viewportptr = ImGui.GetMainViewport();
@@ -360,255 +362,29 @@ namespace ActionCardPal
             {
                 ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(8, 8));
 
-                if (ImGui.BeginTable("split", 4))
+                if (ImGui.BeginTable("split", 2, ImGuiTableFlags.PadOuterX))
                 {
-                    ImGui.TableSetupColumn("##deck", ImGuiTableColumnFlags.WidthFixed, CARD_WIDTH);
-                    ImGui.TableSetupColumn("##discard", ImGuiTableColumnFlags.WidthFixed, CARD_WIDTH);
+                    ImGui.TableSetupColumn("##left-sidebar", ImGuiTableColumnFlags.WidthFixed, 300);
                     ImGui.TableSetupColumn("##main", ImGuiTableColumnFlags.WidthStretch);
-                    ImGui.TableSetupColumn("##order", ImGuiTableColumnFlags.WidthFixed, 300);
+                    // ImGui.TableSetupColumn("##right-sidebar", ImGuiTableColumnFlags.WidthFixed, 300);
+
+                    // TODO style pass on this
+                    // TODO color Joker
+                    // TODO give bg?
+                    // TODO alternating row bg?
+                    // TODO more card-like display rather than text?
 
                     ImGui.TableNextColumn();
-                    {
-                        RenderStack(CSTACK_DECK, new Vector2(ImGui.GetCursorPosX(), ImGui.GetContentRegionAvail().Y));
-
-                        // TODO make these buttons not move as the deck gets smaller
-
-                        using (StyleContext sc = new StyleContext())
-                        {
-                            sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                            sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                            ImGui.SetCursorPosY(ImGui.GetItemRectMin().Y - ImGui.GetStyle().ItemSpacing.Y - CARD_WIDTH);
-
-                            if (ImGui.Button("shuffle", new Vector2(CARD_WIDTH, CARD_WIDTH)))
-                            {
-                                CollectAndShuffleDeck();
-                            }
-
-                            ImGui.SetCursorPosY(ImGui.GetItemRectMin().Y - ImGui.GetStyle().ItemSpacing.Y - CARD_WIDTH);
-
-                            if (ImGui.Button("deal", new Vector2(CARD_WIDTH, CARD_WIDTH)))
-                            {
-                                foreach (Actor actor in actors)
-                                {
-                                    foreach (Card card in actor.cstack.Cards.ToArray())
-                                    {
-                                        card.Discard();
-                                    }
-                                }
-
-                                // TODO what if fewer cards in deck than actors
-
-                                foreach (Actor actor in actors)
-                                {
-                                    CSTACK_DECK.TopCard!.Owner = actor.cstack;
-                                }
-                            }
-
-                            ImGui.SetCursorPosY(ImGui.GetItemRectMin().Y - ImGui.GetStyle().ItemSpacing.Y - CARD_WIDTH);
-
-                            if (ImGui.Button("actors...", new Vector2(CARD_WIDTH, CARD_WIDTH)))
-                                ImGui.OpenPopup("actorcfg");
-                        }
-
-                        if (ImGui.BeginPopup("actorcfg"))
-                        {
-                            ImGui.Text("Row 1");
-                            ImGui.SameLine();
-                            ImGui.Button("Delete");
-                            ImGui.SameLine();
-
-                            Vector3 colora = new Vector3();
-                            ImGui.ColorEdit3($"##color{1}", ref colora);
-
-                            if (ImGui.BeginTable("##actors", 3))
-                            {
-                                int idCfgActor = 1;
-                                for (int iActor = 0; iActor < actors.Count; iActor++)
-                                {
-                                    Actor actor = actors[iActor];
-
-                                    ImGui.TableNextRow();
-
-                                    ImGui.TableNextColumn();
-
-                                    if (ImGui.Selectable($"x##{idCfgActor++}", false, ImGuiSelectableFlags.NoAutoClosePopups))
-                                    {
-                                        foreach (Card card in actor.cstack.Cards)
-                                        {
-                                            card.Discard();
-                                        }
-
-                                        actors.RemoveAt(iActor);
-                                        iActor--;
-                                    }
-
-                                    ImGui.TableNextColumn();
-
-                                    ImGui.TextUnformatted(actor.name);
-
-                                    ImGui.TableNextColumn();
-
-                                    Vector3 color = new Vector3();
-                                    ImGui.ColorEdit3($"##color{idCfgActor}", ref color); // TODO this is rendering weird
-                                }
-
-                                ImGui.TableNextRow();
-
-                                ImGui.TableNextColumn();
-
-                                if (ImGui.Selectable("+##plusactor", false, ImGuiSelectableFlags.NoAutoClosePopups | ImGuiSelectableFlags.SpanAllColumns))
-                                {
-                                    actors.Add(new Actor("New actor"));
-                                }
-
-                                ImGui.TableNextColumn();
-
-                                ImGui.TableNextColumn();
-
-                                ImGui.EndTable();
-                            }
-
-                            ImGui.Separator();
-
-                            if (ImGui.Selectable("+##plusactorinnewrow", false, ImGuiSelectableFlags.NoAutoClosePopups))
-                            {
-                                actors.Add(new Actor("New actor"));
-                            }
-
-                            ImGui.EndPopup();
-                        }
-                    }
-                    ImGui.TableNextColumn();
-                    {
-                        RenderStack(CSTACK_DISCARD, new Vector2(ImGui.GetCursorPosX(), ImGui.GetContentRegionAvail().Y));
-                    }
-                    ImGui.TableNextColumn();
-
-                    int idActor = 1;
-                    foreach (Actor actor in actors)
-                    {
-                        ImGuiStylePtr imStyle = ImGui.GetStyle();
-
-                        int nCards = actor.cstack.Cards.Count();
-
-                        float nameWidth;
-                        float cardsWidth;
-                        float regionWidth;
-                        {
-                            ImGui.PushFont(FONT_ACTOR_NAMES);
-                            nameWidth = ImGui.CalcTextSize(actor.name).X + imStyle.FramePadding.X * 2;
-                            ImGui.PopFont();
-
-                            cardsWidth = (nCards * CARD_WIDTH) + ((nCards - 1) * imStyle.ItemSpacing.X);
-
-                            float minWidth = (2.5f * CARD_WIDTH) + (2 * imStyle.ItemSpacing.X);
-
-                            regionWidth = Math.Max(minWidth, Math.Max(nameWidth, cardsWidth));
-                        }
-
-                        float actorGroupStartX = ImGui.GetCursorPosX();
-
-                        ImGui.PushID(idActor++);
-                        ImGui.BeginGroup();
-                        {
-                            using (StyleContext sc = new StyleContext())
-                            {
-                                sc.SetStyleColor(ImGuiCol.FrameBg, 0x00000000);
-                                sc.SetFont(FONT_ACTOR_NAMES);
-
-                                ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (nameWidth / 2)));
-                                ImGui.SetNextItemWidth(nameWidth);
-                                ImGui.InputText($"##name", ref actor.name, (uint)actor.name.Length + 1024, ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AutoSelectAll);
-                            }
-
-                            ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (cardsWidth / 2)));
-
-                            int idCard = 1;
-                            foreach (Card card in actor.cstack.CardsBestToWorst)
-                            {
-                                ImGui.PushID(idCard++);
-                                ImGui.BeginGroup();
-
-                                RenderCard(card);
-
-                                if (ImGui.IsItemClicked())
-                                {
-                                    if (!card.FaceUp)
-                                    {
-                                        card.FaceUp = true;
-                                    }
-                                    else
-                                    {
-                                        actor.SelectedCard = card;
-                                    }
-                                }
-
-                                if (card.FaceUp && card != actor.SelectedCard)
-                                {
-                                    ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0x55000000);
-                                }
-
-                                using (StyleContext sc = new StyleContext())
-                                {
-                                    sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                                    sc.SetStyleColor(ImGuiCol.ButtonHovered, 0x220000ff);
-                                    sc.SetStyleColor(ImGuiCol.ButtonActive, 0xaa0000ff);
-                                    sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                                    if (ImGui.Button("discard", new Vector2(ImGui.GetItemRectSize().X, 0)))
-                                    {
-                                        card.Discard();
-                                    }
-                                }
-
-                                ImGui.EndGroup();
-                                ImGui.PopID();
-
-                                ImGui.SameLine();
-                            }
-
-                            if (CSTACK_DECK.HasAnyCards)
-                            {
-                                using (StyleContext sc = new StyleContext())
-                                {
-                                    sc.SetFont(FONT_ACTOR_NAMES);
-                                    sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                                    sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                                    if (nCards == 0)
-                                    {
-                                        ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (CARD_WIDTH / 2)));
-                                    }
-
-                                    if (ImGui.Button("+", new Vector2(nCards == 0 ? CARD_WIDTH : 30, CARD_HEIGHT)))
-                                    {
-                                        CSTACK_DECK.TopCard!.Owner = actor.cstack;
-                                    }
-                                }
-                            }
-                        }
-
-                        ImGui.SetCursorPosX(actorGroupStartX);
-                        ImGui.Dummy(new Vector2(regionWidth, 0));
-
-                        ImGui.EndGroup();
-                        ImGui.PopID();
-
-                        ImGui.SameLine();
-                    }
-
-                    ImGui.TableNextColumn();
-
                     ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, 0x33000000);
-
-                    if (ImGui.BeginTable("##order", 2))
+                    if (ImGui.BeginTable("##order", 2, ImGuiTableFlags.PadOuterX))
                     {
                         ImGui.PushFont(FONT_TURN_ORDER);
 
-                        foreach (Actor actor in actors.Where(actor => !actor.cstack.HasAnyCards))
+                        // TODO propogate color
+
+                        foreach (Actor actor in Actors.Where(actor => !actor.cstack.HasAnyCards))
                         {
-                            ImGui.PushStyleColor(ImGuiCol.Text, 0xff777777);
+                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 0.4f));
 
                             ImGui.TableNextRow();
                             ImGui.TableNextColumn();
@@ -618,27 +394,385 @@ namespace ActionCardPal
                             ImGui.PopStyleColor();
                         }
 
-                        foreach (Actor actor in actors.Where(actor => actor.SelectedCard != null && !actor.SelectedCard.FaceUp))
+                        foreach (Actor actor in Actors.Where(actor => actor.SelectedCard != null && !actor.SelectedCard.FaceUp))
                         {
+                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
+
                             ImGui.TableNextRow();
                             ImGui.TableNextColumn();
                             ImGui.TextUnformatted(actor.name);
                             ImGui.TableNextColumn();
                             ImGui.TextUnformatted("????????");
+
+                            ImGui.PopStyleColor();
                         }
 
-                        foreach (Actor actor in actors.Where(actor => actor.SelectedCard != null && actor.SelectedCard.FaceUp).OrderByDescending(actor => actor.SelectedCard!.InitiativeValue))
+                        foreach (Actor actor in Actors.Where(actor => actor.SelectedCard != null && actor.SelectedCard.FaceUp).OrderByDescending(actor => actor.SelectedCard!.InitiativeValue))
                         {
+                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
+
                             ImGui.TableNextRow();
                             ImGui.TableNextColumn();
                             ImGui.TextUnformatted(actor.name);
                             ImGui.TableNextColumn();
                             ImGui.TextUnformatted(actor.SelectedCard!.ToString());
+
+                            ImGui.PopStyleColor();
                         }
 
                         ImGui.PopFont();
 
                         ImGui.EndTable();
+                    }
+
+                    float dYSpaceForButtons = 150;
+
+                    {
+                        Vector2 bottomLeft = ImGui.GetCursorPos() + new Vector2(0, ImGui.GetContentRegionAvail().Y - dYSpaceForButtons);
+
+                        RenderStack(CSTACK_DECK, bottomLeft);
+                        RenderStack(CSTACK_DISCARD, bottomLeft + new Vector2(CARD_WIDTH + ImGui.GetStyle().ItemSpacing.X, 0));
+
+                        ImGui.SetCursorPos(bottomLeft + new Vector2(0, ImGui.GetStyle().ItemSpacing.Y));
+                    }
+
+                    if (ImGui.BeginTable("##buttons", 3))
+                    {
+                        // TODO make these buttons not move as the deck gets smaller
+
+                        float dYSpaceRemaining = ImGui.GetContentRegionAvail().Y;
+
+                        using (StyleContext sc = new StyleContext())
+                        {
+                            Vector2 btnSize = new Vector2(ImGui.GetContentRegionAvail().X / 3, (dYSpaceRemaining - ImGui.GetStyle().CellPadding.Y * 4) / 2);
+
+                            // sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
+                            // sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
+
+                            sc.SetStyleColor(ImGuiCol.Button, 0x44000000);
+                            sc.SetStyleColor(ImGuiCol.Text, 0xffffffff);
+
+                            ImGui.TableNextColumn();
+
+                            bool notEnoughCardsToDeal = Actors.Count() > CSTACK_DECK.Cards.Count();
+
+                            ImGui.BeginDisabled(!Actors.Any() || notEnoughCardsToDeal);
+                            if (ImGui.Button("deal", btnSize))
+                            {
+                                foreach (Actor actor in Actors)
+                                {
+                                    foreach (Card card in actor.cstack.Cards.ToArray())
+                                    {
+                                        card.Discard();
+                                    }
+                                }
+
+                                foreach (Actor actor in Actors)
+                                {
+                                    CSTACK_DECK.TopCard!.Owner = actor.cstack;
+                                }
+                            }
+                            ImGui.EndDisabled();
+
+                            if (notEnoughCardsToDeal && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                            {
+                                ImGui.PushStyleColor(ImGuiCol.Text, 0xff000000);
+                                ImGui.SetTooltip("There are not enough cards remaining in the deck to give every player a card.\nYou should reshuffle the deck first.");
+                                ImGui.PopStyleColor();
+                            }
+
+                            ImGui.TableNextColumn();
+
+                            ImGui.BeginDisabled(Actors.All(actor => !actor.cstack.HasAnyCards));
+                            if (ImGui.Button("reveal", btnSize))
+                            {
+                                foreach (Actor actor in Actors)
+                                {
+                                    foreach (Card card in actor.cstack.Cards.ToArray())
+                                    {
+                                        card.FaceUp = true;
+                                    }
+                                }
+                            }
+                            ImGui.EndDisabled();
+
+                            ImGui.TableNextColumn();
+
+                            if (ImGui.Button("reshuffle", btnSize))
+                            {
+                                CollectAndShuffleDeck();
+                            }
+
+                            ImGui.TableNextColumn();
+
+                            // ImGui.Button("undo", btnSize);
+
+                            ImGui.TableNextColumn();
+
+                            if (ImGui.Button("actors...", btnSize))
+                                ImGui.OpenPopup("actorcfg");
+
+                            ImGui.TableNextColumn();
+
+                            // ImGui.Button("settings...", btnSize);
+                        }
+
+                        // TODO position popup and color popup better
+
+                        if (ImGui.BeginPopup("actorcfg", ImGuiWindowFlags.AlwaysAutoResize))
+                        {
+                            List<Actor>? rowRemove = null;
+                            int nRow = 1;
+
+                            foreach (List<Actor> row in actorRows)
+                            {
+                                if (nRow != 1)
+                                    ImGui.Separator();
+
+                                Actor? actorRemove = null;
+                                bool addNewActor = false;
+
+                                if (ImGui.BeginTable("##actors", 3))
+                                {
+                                    ImGui.TableNextRow();
+                                    ImGui.TableNextColumn();
+
+                                    Vector3 colorRow = row.Select(actor => actor.color).Distinct().Count() == 1 ? row[0].color : new Vector3(0, 0, 0);
+                                    if (ImGui.ColorEdit3($"##color{1}", ref colorRow, ImGuiColorEditFlags.NoInputs))
+                                    {
+                                        foreach (Actor actor in row)
+                                        {
+                                            actor.color = colorRow;
+                                        }
+                                    }
+
+                                    ImGui.TableNextColumn();
+
+                                    ImGui.AlignTextToFramePadding();
+                                    ImGui.Text($"Row {nRow}");
+
+                                    ImGui.TableNextColumn();
+
+                                    // TODO better icon and make wider
+
+                                    if (actorRows.Count > 1 && ImGui.Selectable("x", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                                        rowRemove = row;
+
+                                    int idCfgActor = 1;
+                                    foreach (Actor actor in row)
+                                    {
+                                        ImGui.PushID(idCfgActor++);
+
+                                        ImGui.TableNextRow();
+
+                                        ImGui.TableNextColumn();
+
+                                        ImGui.ColorEdit3("##color", ref actor.color, ImGuiColorEditFlags.NoInputs);
+
+                                        ImGui.TableNextColumn();
+
+                                        using (StyleContext sc = new StyleContext())
+                                        {
+                                            sc.SetStyleColor(ImGuiCol.FrameBg, 0x00000000);
+                                            sc.SetStyleVar(ImGuiStyleVar.FramePadding, new Vector2(0, ImGui.GetStyle().FramePadding.Y));
+
+                                            ImGui.SetNextItemWidth(ImGui.CalcTextSize(actor.name).X + ImGui.GetStyle().FramePadding.X * 2);
+                                            ImGui.InputText("##name", ref actor.name, (uint)actor.name.Length + 1024, ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AutoSelectAll);
+                                        }
+
+                                        ImGui.TableNextColumn();
+
+                                        if (ImGui.Selectable("x", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                                            actorRemove = actor;
+
+                                        ImGui.PopID();
+                                    }
+
+                                    ImGui.TableNextRow();
+
+                                    ImGui.TableNextColumn();
+
+                                    if (ImGui.Selectable("+##plusactor", false, ImGuiSelectableFlags.NoAutoClosePopups | ImGuiSelectableFlags.SpanAllColumns))
+                                        addNewActor = true;
+
+                                    ImGui.EndTable();
+                                }
+
+                                if (actorRemove != null)
+                                {
+                                    foreach (Card card in actorRemove.cstack.Cards)
+                                    {
+                                        card.Discard();
+                                    }
+
+                                    row.Remove(actorRemove);
+                                }
+
+                                if (addNewActor)
+                                {
+                                    row.Add(new Actor("New actor"));
+                                }
+
+                                nRow++;
+                            }
+
+                            if (rowRemove != null)
+                            {
+                                foreach(Actor actor in rowRemove)
+                                {
+                                    foreach (Card card in actor.cstack.Cards)
+                                    {
+                                        card.Discard();
+                                    }
+                                }
+
+                                actorRows.Remove(rowRemove);
+                            }
+
+                            if (nRow != 1)
+                                ImGui.Separator();
+
+                            if (ImGui.Selectable("+##plusactorinnewrow", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                            {
+                                actorRows.Add(new List<Actor>() { new Actor("New actor") });
+                            }
+
+                            if (actorRows.Count == 0)
+                            {
+                                actorRows.Add(new List<Actor>());
+                            }
+
+                            ImGui.EndPopup();
+                        }
+
+                        ImGui.EndTable();
+                    }
+
+                    ImGui.TableNextColumn();
+
+                    int idActor = 1;
+                    foreach (List<Actor> row in actorRows)
+                    {
+                        // TODO center each row?
+
+                        foreach (Actor actor in row)
+                        {
+                            ImGuiStylePtr imStyle = ImGui.GetStyle();
+
+                            int nCards = actor.cstack.Cards.Count();
+
+                            float nameWidth;
+                            float cardsWidth;
+                            float regionWidth;
+                            {
+                                ImGui.PushFont(FONT_ACTOR_NAMES);
+                                nameWidth = ImGui.CalcTextSize(actor.name).X + imStyle.FramePadding.X * 2;
+                                ImGui.PopFont();
+
+                                cardsWidth = (nCards * CARD_WIDTH) + ((nCards - 1) * imStyle.ItemSpacing.X);
+
+                                float minWidth = (2.5f * CARD_WIDTH) + (2 * imStyle.ItemSpacing.X);
+
+                                regionWidth = Math.Max(minWidth, Math.Max(nameWidth, cardsWidth));
+                            }
+
+                            float actorGroupStartX = ImGui.GetCursorPosX();
+
+                            ImGui.PushID(idActor++);
+                            ImGui.BeginGroup();
+                            {
+                                using (StyleContext sc = new StyleContext())
+                                {
+                                    sc.SetStyleColor(ImGuiCol.FrameBg, 0x00000000);
+                                    sc.SetFont(FONT_ACTOR_NAMES);
+                                    sc.SetStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
+
+                                    ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (nameWidth / 2)));
+                                    ImGui.SetNextItemWidth(nameWidth);
+                                    ImGui.InputText($"##name", ref actor.name, (uint)actor.name.Length + 1024, ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AutoSelectAll);
+                                }
+
+                                ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (cardsWidth / 2)));
+
+                                int idCard = 1;
+                                foreach (Card card in actor.cstack.CardsBestToWorst)
+                                {
+                                    ImGui.PushID(idCard++);
+                                    ImGui.BeginGroup();
+
+                                    RenderCard(card);
+
+                                    if (ImGui.IsItemClicked())
+                                    {
+                                        if (!card.FaceUp)
+                                        {
+                                            card.FaceUp = true;
+                                        }
+                                        else
+                                        {
+                                            actor.SelectedCard = card;
+                                        }
+                                    }
+
+                                    if (card.FaceUp && card != actor.SelectedCard)
+                                    {
+                                        ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0x55000000);
+                                    }
+
+                                    using (StyleContext sc = new StyleContext())
+                                    {
+                                        sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
+                                        sc.SetStyleColor(ImGuiCol.ButtonHovered, 0x220000ff);
+                                        sc.SetStyleColor(ImGuiCol.ButtonActive, 0xaa0000ff);
+                                        sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
+
+                                        if (ImGui.Button("discard", new Vector2(ImGui.GetItemRectSize().X, 0)))
+                                        {
+                                            card.Discard();
+                                        }
+                                    }
+
+                                    ImGui.EndGroup();
+                                    ImGui.PopID();
+
+                                    ImGui.SameLine();
+                                }
+
+                                if (CSTACK_DECK.HasAnyCards)
+                                {
+                                    using (StyleContext sc = new StyleContext())
+                                    {
+                                        sc.SetFont(FONT_ACTOR_NAMES);
+                                        sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
+                                        sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
+
+                                        if (nCards == 0)
+                                        {
+                                            ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (CARD_WIDTH / 2)));
+                                        }
+
+                                        if (ImGui.Button("+", new Vector2(nCards == 0 ? CARD_WIDTH : 30, CARD_HEIGHT)))
+                                        {
+                                            CSTACK_DECK.TopCard!.Owner = actor.cstack;
+                                        }
+                                    }
+                                }
+                            }
+
+                            ImGui.SetCursorPosX(actorGroupStartX);
+                            ImGui.Dummy(new Vector2(regionWidth, 0));
+
+                            ImGui.EndGroup();
+                            ImGui.PopID();
+
+                            ImGui.SameLine();
+                        }
+
+                        // TODO make spacing configurable?
+
+                        ImGui.NewLine();
+                        ImGui.NewLine();
+                        ImGui.NewLine();
                     }
 
                     ImGui.EndTable();
