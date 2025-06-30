@@ -517,9 +517,30 @@ namespace ActionCardPal
                             // ImGui.Button("settings...", btnSize);
                         }
 
-                        // TODO position popup and color popup better
+                        // popup size
 
-                        if (ImGui.BeginPopup("actorcfg", ImGuiWindowFlags.AlwaysAutoResize))
+                        float popupHeight = 0;
+
+                        {
+                            float separatorHeight = (ImGui.GetStyle().ItemSpacing.Y * 2);
+                            float rowHeight = ImGui.GetFrameHeight() + ImGui.GetStyle().CellPadding.Y * 2;
+
+                            popupHeight += ImGui.GetStyle().WindowPadding.Y * 2; // padding
+                            popupHeight += actorRows.Count * separatorHeight; // separators
+                            popupHeight += actorRows.Count * (rowHeight * 2); // header + add button
+                            popupHeight += Actors.Count() * rowHeight; // actor rows
+                            popupHeight += rowHeight; // final add button
+                        }
+
+                        if (ImGui.IsPopupOpen("actorcfg"))
+                        {
+                            // TODO account for popup border
+
+                            ImGui.SetNextWindowPos(new Vector2(ImGui.GetItemRectMin().X, ImGui.GetItemRectMin().Y - popupHeight - ImGui.GetStyle().ItemSpacing.Y));
+                            ImGui.SetNextWindowSize(new Vector2(0, popupHeight));
+                        }
+
+                        if (ImGui.BeginPopup("actorcfg"))
                         {
                             List<Actor>? rowRemove = null;
                             int nRow = 1;
@@ -555,7 +576,7 @@ namespace ActionCardPal
 
                                     // TODO better icon and make wider
 
-                                    if (actorRows.Count > 1 && ImGui.Selectable("x", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                                    if (actorRows.Count > 1 && ImGui.Button("x", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
                                         rowRemove = row;
 
                                     int idCfgActor = 1;
@@ -582,7 +603,7 @@ namespace ActionCardPal
 
                                         ImGui.TableNextColumn();
 
-                                        if (ImGui.Selectable("x", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                                        if (ImGui.Button("x", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
                                             actorRemove = actor;
 
                                         ImGui.PopID();
@@ -592,7 +613,7 @@ namespace ActionCardPal
 
                                     ImGui.TableNextColumn();
 
-                                    if (ImGui.Selectable("+##plusactor", false, ImGuiSelectableFlags.NoAutoClosePopups | ImGuiSelectableFlags.SpanAllColumns))
+                                    if (ImGui.Selectable("+##plusactor", false, ImGuiSelectableFlags.NoAutoClosePopups | ImGuiSelectableFlags.SpanAllColumns, new Vector2(0, ImGui.GetFrameHeight())))
                                         addNewActor = true;
 
                                     ImGui.EndTable();
@@ -632,9 +653,17 @@ namespace ActionCardPal
                             if (nRow != 1)
                                 ImGui.Separator();
 
-                            if (ImGui.Selectable("+##plusactorinnewrow", false, ImGuiSelectableFlags.NoAutoClosePopups))
+                            if (ImGui.BeginTable("##actorsnewrow", 3))
                             {
-                                actorRows.Add(new List<Actor>() { new Actor("New actor") });
+                                ImGui.TableNextRow();
+                                ImGui.TableNextColumn();
+
+                                if (ImGui.Selectable("+##plusactornewrow", false, ImGuiSelectableFlags.NoAutoClosePopups | ImGuiSelectableFlags.SpanAllColumns, new Vector2(0, ImGui.GetFrameHeight())))
+                                {
+                                    actorRows.Add(new List<Actor>() { });
+                                }
+
+                                ImGui.EndTable();
                             }
 
                             if (actorRows.Count == 0)
