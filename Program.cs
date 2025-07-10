@@ -117,20 +117,20 @@ namespace ActionCardPal
         {
             ImGui.BeginGroup();
 
-            ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetCursorScreenPos(), ImGui.GetCursorScreenPos() + CARD_SIZE, 0xffffffff);
+            ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetCursorScreenPos(), ImGui.GetCursorScreenPos() + CARD_SIZE, Rgb32(1, 1, 1));
 
             Vector2 cursorPosTopLeft = ImGui.GetCursorPos();
 
             if (!card.FaceUp)
             {
-                ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetCursorScreenPos() + new Vector2(3, 3), ImGui.GetCursorScreenPos() + CARD_SIZE - new Vector2(3, 3), 0xff444444);
+                ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetCursorScreenPos() + new Vector2(3, 3), ImGui.GetCursorScreenPos() + CARD_SIZE - new Vector2(3, 3), Rgb32(0.26, 0.26, 0.26));
             }
             else if (card.Rank == Rank.Joker)
             {
                 using (StyleContext sc = new StyleContext())
                 {
                     sc.SetFont(CARD_FONT_SUIT);
-                    sc.SetStyleColor(ImGuiCol.Text, new Vector4(0.95f, 0.55f, 0.15f, 1.00f));
+                    sc.SetStyleColor(ImGuiCol.Text, JOKER_COLOR); // TODO color joker card?
 
                     string strJoker = "JK";
                     Vector2 strJokerSize = ImGui.CalcTextSize(strJoker);
@@ -174,19 +174,19 @@ namespace ActionCardPal
                     sc.SetFont(CARD_FONT_SUIT);
                     sc.SetStyleColor(ImGuiCol.Text, card.Suit switch
                     {
-                        Suit.Clubs => new Vector4(0.4f, 0.4f, 0.4f, 1.0f),
-                        Suit.Diamonds => new Vector4(1.0f, 0.4f, 0.4f, 1.0f),
-                        Suit.Hearts => new Vector4(1.0f, 0.0f, 0.0f, 1.0f),
-                        Suit.Spades => new Vector4(0.0f, 0.0f, 0.0f, 1.0f),
+                        Suit.Clubs      => Rgb(0.4, 0.4, 0.4),
+                        Suit.Diamonds   => Rgb(1.0, 0.4, 0.4),
+                        Suit.Hearts     => Rgb(1.0, 0.0, 0.0),
+                        Suit.Spades     => Rgb(0.0, 0.0, 0.0),
                         _ => throw new InvalidOperationException(),
                     });
  
                     string strSuit = card.Suit switch
                     {
-                        Suit.Clubs => "♣",
-                        Suit.Diamonds => "♦",
-                        Suit.Hearts => "♥",
-                        Suit.Spades => "♠",
+                        Suit.Clubs      => "♣",
+                        Suit.Diamonds   => "♦",
+                        Suit.Hearts     => "♥",
+                        Suit.Spades     => "♠",
                         _ => throw new InvalidOperationException(),
                     };
 
@@ -215,7 +215,7 @@ namespace ActionCardPal
 
                 if (card != cstack.TopCard)
                 {
-                    ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0x22000000);
+                    ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), Rgba32(0, 0, 0, 0.13));
                 }
 
                 dy += 1;
@@ -232,7 +232,7 @@ namespace ActionCardPal
             }
 
             public string name;
-            public Vector3 color = new Vector3(0, 0, 0);
+            public Vector3 color = new Vector3(0, 0, 0); // TODO should color be bg highlight rather than text color?
             public CardStack cstack = new CardStack();
 
             private Card? lastSelectedCard;
@@ -256,12 +256,31 @@ namespace ActionCardPal
             }
         }
 
+        static class UserConfig
+        {
+            public static float spaceBetweenRows = 200.0f;
+        }
+
+        static StyleContext ScButtonRemove()
+        {
+            StyleContext sc = new StyleContext();
+            sc.SetStyleColor(ImGuiCol.Button, Rgba(0, 0, 0, 0));
+            sc.SetStyleColor(ImGuiCol.ButtonHovered, Rgba(1, 0, 0, 0.15));
+            sc.SetStyleColor(ImGuiCol.ButtonActive, Rgba(1, 0, 0, 0.30));
+            sc.SetStyleColor(ImGuiCol.Text, Rgba(0, 0, 0, 0.2));
+            return sc;
+        }
+
         static List<List<Actor>> actorRows = new List<List<Actor>>() { new List<Actor>() { } };
         static IEnumerable<Actor> Actors => actorRows.SelectMany(l => l);
 
         static ImFontPtr FONT_DEFAULT;
+        static ImFontPtr FONT_DEFAULT_BOLD;
         static ImFontPtr FONT_ACTOR_NAMES;
         static ImFontPtr FONT_TURN_ORDER;
+
+        static Vector4 JOKER_COLOR = Rgb(0.95, 0.55, 0.15);
+        // static Vector4 JOKER_COLOR = Rgb(0.66, 0.00, 1.00);
 
         static void Main(string[] args)
         {
@@ -283,17 +302,21 @@ namespace ActionCardPal
             io.Fonts.Flags |= ImFontAtlasFlags.NoBakedLines;
 
             FONT_DEFAULT = io.Fonts.AddFontFromFileTTF(@"C:\Windows\Fonts\segoeui.ttf", 20);
+            FONT_DEFAULT_BOLD = io.Fonts.AddFontFromFileTTF(@"C:\Windows\Fonts\segoeuib.ttf", 20);
             FONT_ACTOR_NAMES = io.Fonts.AddFontFromFileTTF(@"C:\Windows\Fonts\segoeui.ttf", 30);
             FONT_TURN_ORDER = io.Fonts.AddFontFromFileTTF(@"C:\Windows\Fonts\segoeui.ttf", 24);
 
             InitCardFonts();
 
             ImGuiStylePtr imstyle = ImGui.GetStyle();
-            imstyle.Colors[(int)ImGuiCol.WindowBg] = new Vector4(0.9f, 0.9f, 0.9f, 1.0f);
-            imstyle.Colors[(int)ImGuiCol.PopupBg] = new Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-            imstyle.Colors[(int)ImGuiCol.Text] = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
-            imstyle.Colors[(int)ImGuiCol.ScrollbarBg] = new Vector4(0.8f, 0.8f, 0.8f, 1.0f);
+            imstyle.Colors[(int)ImGuiCol.WindowBg]      = Rgb(0.9, 0.9, 0.9);
+            imstyle.Colors[(int)ImGuiCol.PopupBg]       = Rgb(1.0, 1.0, 1.0);
+            imstyle.Colors[(int)ImGuiCol.Text]          = Rgb(0.0, 0.0, 0.0);
+            imstyle.Colors[(int)ImGuiCol.ScrollbarBg]   = Rgb(0.8, 0.8, 0.8);
+            // imstyle.Colors[(int)ImGuiCol.Border]        = Rgb(0.5, 0.5, 0.5);
             imstyle.WindowPadding = new Vector2(0);
+            imstyle.FramePadding = new Vector2(3, 3);
+            imstyle.PopupBorderSize = 0;
 
             CommandList cl = gd.ResourceFactory.CreateCommandList();
             ImGuiController controller = new ImGuiController(gd, gd.MainSwapchain.Framebuffer.OutputDescription, window.Width, window.Height);
@@ -360,97 +383,121 @@ namespace ActionCardPal
 
             if (ImGui.Begin("Main", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove))
             {
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(8, 8));
-
-                if (ImGui.BeginTable("split", 2, ImGuiTableFlags.PadOuterX))
+                using (StyleContext sc = new StyleContext())
                 {
-                    ImGui.TableSetupColumn("##left-sidebar", ImGuiTableColumnFlags.WidthFixed, 300);
-                    ImGui.TableSetupColumn("##main", ImGuiTableColumnFlags.WidthStretch);
-                    // ImGui.TableSetupColumn("##right-sidebar", ImGuiTableColumnFlags.WidthFixed, 300);
+                    // TODO why is this here?
 
-                    // TODO style pass on this
-                    // TODO color Joker
-                    // TODO give bg?
-                    // TODO alternating row bg?
-                    // TODO more card-like display rather than text?
+                    sc.SetStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(8, 8));
+                    sc.SetStyleVar(ImGuiStyleVar.CellPadding, new Vector2(0, 0));
 
-                    ImGui.TableNextColumn();
-                    ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, 0x33000000);
-                    if (ImGui.BeginTable("##order", 2, ImGuiTableFlags.PadOuterX))
+                    if (ImGui.BeginTable("split", 2, ImGuiTableFlags.PadOuterX))
                     {
-                        ImGui.PushFont(FONT_TURN_ORDER);
+                        ImGui.TableSetupColumn("##left-sidebar", ImGuiTableColumnFlags.WidthFixed, 300);
+                        ImGui.TableSetupColumn("##main", ImGuiTableColumnFlags.WidthStretch);
 
-                        // TODO propogate color
+                        ImGui.TableNextColumn();
+                        RenderSidebar();
 
-                        foreach (Actor actor in Actors.Where(actor => !actor.cstack.HasAnyCards))
-                        {
-                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 0.4f));
-
-                            ImGui.TableNextRow();
-                            ImGui.TableNextColumn();
-                            ImGui.TextUnformatted(actor.name);
-                            ImGui.TableNextColumn();
-
-                            ImGui.PopStyleColor();
-                        }
-
-                        foreach (Actor actor in Actors.Where(actor => actor.SelectedCard != null && !actor.SelectedCard.FaceUp))
-                        {
-                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
-
-                            ImGui.TableNextRow();
-                            ImGui.TableNextColumn();
-                            ImGui.TextUnformatted(actor.name);
-                            ImGui.TableNextColumn();
-                            ImGui.TextUnformatted("????????");
-
-                            ImGui.PopStyleColor();
-                        }
-
-                        foreach (Actor actor in Actors.Where(actor => actor.SelectedCard != null && actor.SelectedCard.FaceUp).OrderByDescending(actor => actor.SelectedCard!.InitiativeValue))
-                        {
-                            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
-
-                            ImGui.TableNextRow();
-                            ImGui.TableNextColumn();
-                            ImGui.TextUnformatted(actor.name);
-                            ImGui.TableNextColumn();
-                            ImGui.TextUnformatted(actor.SelectedCard!.ToString());
-
-                            ImGui.PopStyleColor();
-                        }
-
-                        ImGui.PopFont();
+                        ImGui.TableNextColumn();
+                        RenderPlayingSurface();
 
                         ImGui.EndTable();
                     }
 
-                    float dYSpaceForButtons = 150;
+                }
+            }
+            ImGui.End();
+        }
 
+        static void RenderSidebar()
+        {
+            // TODO style pass on this
+            // TODO color Joker
+            // TODO more card-like display rather than text?
+
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, Rgba32(0, 0, 0, 0.2));
+
+            using (StyleContext scTurnOrder = new StyleContext())
+            {
+                scTurnOrder.SetFont(FONT_TURN_ORDER);
+
+                if (Actors.Count() % 2 == 0)
+                {
+                    scTurnOrder.SetStyleColor(ImGuiCol.TableRowBgAlt,   Rgba(0.0, 0.0, 0.0, 0.05));
+                    scTurnOrder.SetStyleColor(ImGuiCol.TableRowBg,      Rgba(0.0, 0.0, 0.0, 0.00));
+                }
+                else
+                {
+                    scTurnOrder.SetStyleColor(ImGuiCol.TableRowBg,      Rgba(0.0, 0.0, 0.0, 0.05));
+                    scTurnOrder.SetStyleColor(ImGuiCol.TableRowBgAlt,   Rgba(0.0, 0.0, 0.0, 0.00));
+                }
+
+                scTurnOrder.SetStyleVar(ImGuiStyleVar.CellPadding, new Vector2(8, 4));
+
+                if (ImGui.BeginTable("##order", 2, ImGuiTableFlags.PadOuterX | ImGuiTableFlags.RowBg))
+                {
+                    IEnumerable<Actor> orderedActors =
+                        Actors.Where(actor => !actor.cstack.HasAnyCards).Concat(
+                        Actors.Where(actor => actor.SelectedCard != null && !actor.SelectedCard.FaceUp).Concat(
+                        Actors.Where(actor => actor.SelectedCard != null && actor.SelectedCard.FaceUp).OrderByDescending(actor => actor.SelectedCard!.InitiativeValue)
+                    ));
+
+                    foreach (Actor actor in orderedActors)
                     {
-                        Vector2 bottomLeft = ImGui.GetCursorPos() + new Vector2(0, ImGui.GetContentRegionAvail().Y - dYSpaceForButtons);
+                        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(actor.color, actor.cstack.HasAnyCards ? 1.0f : 0.4f));
 
-                        RenderStack(CSTACK_DECK, bottomLeft);
-                        RenderStack(CSTACK_DISCARD, bottomLeft + new Vector2(CARD_WIDTH + ImGui.GetStyle().ItemSpacing.X, 0));
+                        ImGui.TableNextRow();
 
-                        ImGui.SetCursorPos(bottomLeft + new Vector2(0, ImGui.GetStyle().ItemSpacing.Y));
+                        if (actor.cstack.HasAnyCards && actor.SelectedCard!.FaceUp && actor.SelectedCard.Rank == Rank.Joker)
+                        {
+                            ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0, ImGui.ColorConvertFloat4ToU32(new Vector4(Vector3.Lerp(JOKER_COLOR.AsVector3(), Vector3.One, 0.2f), 1.0f)));
+                        }
+
+                        ImGui.TableNextColumn();
+                        ImGui.TextUnformatted(actor.name);
+                        ImGui.TableNextColumn();
+
+                        if (actor.cstack.HasAnyCards)
+                        {
+                            ImGui.TextUnformatted(actor.SelectedCard!.FaceUp ? actor.SelectedCard.ToString() : "????????");
+                        }
+
+                        ImGui.PopStyleColor();
                     }
+                
+                    ImGui.EndTable();
+                }
+            }
+
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(4, 4));
+
+            if (ImGui.BeginChild("deckandbtns", new Vector2(0, 0), ImGuiChildFlags.AlwaysUseWindowPadding))
+            {
+                float dYSpaceForButtons = 150;
+
+                {
+                    Vector2 bottomLeft = ImGui.GetCursorPos() + new Vector2(0, ImGui.GetContentRegionAvail().Y - dYSpaceForButtons);
+
+                    RenderStack(CSTACK_DECK, bottomLeft);
+                    RenderStack(CSTACK_DISCARD, bottomLeft + new Vector2(CARD_WIDTH + ImGui.GetStyle().ItemSpacing.X, 0));
+
+                    ImGui.SetCursorPos(bottomLeft + new Vector2(0, ImGui.GetStyle().ItemSpacing.Y));
+                }
+
+                using (StyleContext scButtons = new StyleContext())
+                {
+                    scButtons.SetStyleVar(ImGuiStyleVar.CellPadding, new Vector2(2, 2));
+
+                    Vector2 btnSize = new Vector2(
+                        (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().CellPadding.Y * 4) / 3,
+                        (ImGui.GetContentRegionAvail().Y - ImGui.GetStyle().CellPadding.Y * 4) / 2);
 
                     if (ImGui.BeginTable("##buttons", 3))
                     {
-                        // TODO make these buttons not move as the deck gets smaller
-
-                        float dYSpaceRemaining = ImGui.GetContentRegionAvail().Y;
-
                         using (StyleContext sc = new StyleContext())
                         {
-                            Vector2 btnSize = new Vector2(ImGui.GetContentRegionAvail().X / 3, (dYSpaceRemaining - ImGui.GetStyle().CellPadding.Y * 4) / 2);
-
-                            // sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                            // sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                            sc.SetStyleColor(ImGuiCol.Button, 0x44000000);
-                            sc.SetStyleColor(ImGuiCol.Text, 0xffffffff);
+                            sc.SetStyleColor(ImGuiCol.Button, Rgba(0, 0, 0, 0.26));
+                            sc.SetStyleColor(ImGuiCol.Text, Rgb(1, 1, 1));
 
                             ImGui.TableNextColumn();
 
@@ -476,7 +523,7 @@ namespace ActionCardPal
 
                             if (notEnoughCardsToDeal && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                             {
-                                ImGui.PushStyleColor(ImGuiCol.Text, 0xff000000);
+                                ImGui.PushStyleColor(ImGuiCol.Text, Rgb(0, 0, 0));
                                 ImGui.SetTooltip("There are not enough cards remaining in the deck to give every player a card.\nYou should reshuffle the deck first.");
                                 ImGui.PopStyleColor();
                             }
@@ -517,7 +564,8 @@ namespace ActionCardPal
                             // ImGui.Button("settings...", btnSize);
                         }
 
-                        // popup size
+                        // Precalculate popup size to position it.
+                        // (This is probably one of the biggest downsides of using Dear ImGui)
 
                         float popupHeight = 0;
 
@@ -553,6 +601,8 @@ namespace ActionCardPal
                                 Actor? actorRemove = null;
                                 bool addNewActor = false;
 
+                                // TODO color selectors pop up window in weird spot
+
                                 if (ImGui.BeginTable("##actors", 3))
                                 {
                                     ImGui.TableNextRow();
@@ -570,14 +620,17 @@ namespace ActionCardPal
                                     ImGui.TableNextColumn();
 
                                     ImGui.AlignTextToFramePadding();
+                                    ImGui.PushFont(FONT_DEFAULT_BOLD);
                                     ImGui.Text($"Row {nRow}");
+                                    ImGui.PopFont();
 
                                     ImGui.TableNextColumn();
 
-                                    // TODO better icon and make wider
-
-                                    if (actorRows.Count > 1 && ImGui.Button("x", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
-                                        rowRemove = row;
+                                    using (StyleContext sc = ScButtonRemove())
+                                    {
+                                        if (actorRows.Count > 1 && ImGui.Button("X", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
+                                            rowRemove = row;
+                                    }
 
                                     int idCfgActor = 1;
                                     foreach (Actor actor in row)
@@ -594,7 +647,7 @@ namespace ActionCardPal
 
                                         using (StyleContext sc = new StyleContext())
                                         {
-                                            sc.SetStyleColor(ImGuiCol.FrameBg, 0x00000000);
+                                            sc.SetStyleColor(ImGuiCol.FrameBg, Rgba(0, 0, 0, 0));
                                             sc.SetStyleVar(ImGuiStyleVar.FramePadding, new Vector2(0, ImGui.GetStyle().FramePadding.Y));
 
                                             ImGui.SetNextItemWidth(ImGui.CalcTextSize(actor.name).X + ImGui.GetStyle().FramePadding.X * 2);
@@ -603,8 +656,11 @@ namespace ActionCardPal
 
                                         ImGui.TableNextColumn();
 
-                                        if (ImGui.Button("x", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
-                                            actorRemove = actor;
+                                        using (StyleContext sc = ScButtonRemove())
+                                        {
+                                            if (ImGui.Button("X", new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight())))
+                                                actorRemove = actor;
+                                        }
 
                                         ImGui.PopID();
                                     }
@@ -639,7 +695,7 @@ namespace ActionCardPal
 
                             if (rowRemove != null)
                             {
-                                foreach(Actor actor in rowRemove)
+                                foreach (Actor actor in rowRemove)
                                 {
                                     foreach (Card card in actor.cstack.Cards)
                                     {
@@ -676,140 +732,133 @@ namespace ActionCardPal
 
                         ImGui.EndTable();
                     }
+                }
 
-                    ImGui.TableNextColumn();
+            }
+            ImGui.EndChild();
 
-                    int idActor = 1;
-                    foreach (List<Actor> row in actorRows)
+            ImGui.PopStyleVar();
+        }
+
+        static void RenderPlayingSurface()
+        {
+            int idActor = 1;
+            foreach (List<Actor> row in actorRows)
+            {
+                // TODO center each row?
+
+                foreach (Actor actor in row)
+                {
+                    ImGuiStylePtr imStyle = ImGui.GetStyle();
+
+                    int nCards = actor.cstack.Cards.Count();
+
+                    float nameWidth;
+                    float cardsWidth;
+                    float regionWidth;
                     {
-                        // TODO center each row?
+                        ImGui.PushFont(FONT_ACTOR_NAMES);
+                        nameWidth = ImGui.CalcTextSize(actor.name).X + imStyle.FramePadding.X * 2;
+                        ImGui.PopFont();
 
-                        foreach (Actor actor in row)
+                        cardsWidth = (nCards * CARD_WIDTH) + ((nCards - 1) * imStyle.ItemSpacing.X);
+
+                        float minWidth = (2.5f * CARD_WIDTH) + (2 * imStyle.ItemSpacing.X);
+
+                        regionWidth = Math.Max(minWidth, Math.Max(nameWidth, cardsWidth));
+                    }
+
+                    float actorGroupStartX = ImGui.GetCursorPosX();
+
+                    ImGui.PushID(idActor++);
+                    ImGui.BeginGroup();
+                    {
+                        using (StyleContext sc = new StyleContext())
                         {
-                            ImGuiStylePtr imStyle = ImGui.GetStyle();
+                            sc.SetStyleColor(ImGuiCol.FrameBg, Rgba(0, 0, 0, 0));
+                            sc.SetFont(FONT_ACTOR_NAMES);
+                            sc.SetStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
 
-                            int nCards = actor.cstack.Cards.Count();
+                            ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (nameWidth / 2)));
+                            ImGui.SetNextItemWidth(nameWidth);
+                            ImGui.InputText($"##name", ref actor.name, (uint)actor.name.Length + 1024, ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AutoSelectAll);
+                        }
 
-                            float nameWidth;
-                            float cardsWidth;
-                            float regionWidth;
-                            {
-                                ImGui.PushFont(FONT_ACTOR_NAMES);
-                                nameWidth = ImGui.CalcTextSize(actor.name).X + imStyle.FramePadding.X * 2;
-                                ImGui.PopFont();
+                        ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (cardsWidth / 2)));
 
-                                cardsWidth = (nCards * CARD_WIDTH) + ((nCards - 1) * imStyle.ItemSpacing.X);
-
-                                float minWidth = (2.5f * CARD_WIDTH) + (2 * imStyle.ItemSpacing.X);
-
-                                regionWidth = Math.Max(minWidth, Math.Max(nameWidth, cardsWidth));
-                            }
-
-                            float actorGroupStartX = ImGui.GetCursorPosX();
-
-                            ImGui.PushID(idActor++);
+                        int idCard = 1;
+                        foreach (Card card in actor.cstack.CardsBestToWorst)
+                        {
+                            ImGui.PushID(idCard++);
                             ImGui.BeginGroup();
+
+                            RenderCard(card);
+
+                            if (ImGui.IsItemClicked())
                             {
-                                using (StyleContext sc = new StyleContext())
+                                if (!card.FaceUp)
                                 {
-                                    sc.SetStyleColor(ImGuiCol.FrameBg, 0x00000000);
-                                    sc.SetFont(FONT_ACTOR_NAMES);
-                                    sc.SetStyleColor(ImGuiCol.Text, new Vector4(actor.color, 1.0f));
-
-                                    ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (nameWidth / 2)));
-                                    ImGui.SetNextItemWidth(nameWidth);
-                                    ImGui.InputText($"##name", ref actor.name, (uint)actor.name.Length + 1024, ImGuiInputTextFlags.NoHorizontalScroll | ImGuiInputTextFlags.AutoSelectAll);
+                                    card.FaceUp = true;
                                 }
-
-                                ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (cardsWidth / 2)));
-
-                                int idCard = 1;
-                                foreach (Card card in actor.cstack.CardsBestToWorst)
+                                else
                                 {
-                                    ImGui.PushID(idCard++);
-                                    ImGui.BeginGroup();
-
-                                    RenderCard(card);
-
-                                    if (ImGui.IsItemClicked())
-                                    {
-                                        if (!card.FaceUp)
-                                        {
-                                            card.FaceUp = true;
-                                        }
-                                        else
-                                        {
-                                            actor.SelectedCard = card;
-                                        }
-                                    }
-
-                                    if (card.FaceUp && card != actor.SelectedCard)
-                                    {
-                                        ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0x55000000);
-                                    }
-
-                                    using (StyleContext sc = new StyleContext())
-                                    {
-                                        sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                                        sc.SetStyleColor(ImGuiCol.ButtonHovered, 0x220000ff);
-                                        sc.SetStyleColor(ImGuiCol.ButtonActive, 0xaa0000ff);
-                                        sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                                        if (ImGui.Button("discard", new Vector2(ImGui.GetItemRectSize().X, 0)))
-                                        {
-                                            card.Discard();
-                                        }
-                                    }
-
-                                    ImGui.EndGroup();
-                                    ImGui.PopID();
-
-                                    ImGui.SameLine();
-                                }
-
-                                if (CSTACK_DECK.HasAnyCards)
-                                {
-                                    using (StyleContext sc = new StyleContext())
-                                    {
-                                        sc.SetFont(FONT_ACTOR_NAMES);
-                                        sc.SetStyleColor(ImGuiCol.Button, 0x00000000);
-                                        sc.SetStyleColor(ImGuiCol.Text, 0x33000000);
-
-                                        if (nCards == 0)
-                                        {
-                                            ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (CARD_WIDTH / 2)));
-                                        }
-
-                                        if (ImGui.Button("+", new Vector2(nCards == 0 ? CARD_WIDTH : 30, CARD_HEIGHT)))
-                                        {
-                                            CSTACK_DECK.TopCard!.Owner = actor.cstack;
-                                        }
-                                    }
+                                    actor.SelectedCard = card;
                                 }
                             }
 
-                            ImGui.SetCursorPosX(actorGroupStartX);
-                            ImGui.Dummy(new Vector2(regionWidth, 0));
+                            if (card.FaceUp && card != actor.SelectedCard)
+                            {
+                                ImGui.GetWindowDrawList().AddRectFilled(ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), 0x55000000);
+                            }
+
+                            using (StyleContext sc = ScButtonRemove())
+                            {
+                                if (ImGui.Button("discard", new Vector2(ImGui.GetItemRectSize().X, 0)))
+                                    card.Discard();
+                            }
 
                             ImGui.EndGroup();
                             ImGui.PopID();
-
+                            
                             ImGui.SameLine();
                         }
 
-                        // TODO make spacing configurable?
+                        if (CSTACK_DECK.HasAnyCards)
+                        {
+                            using (StyleContext sc = new StyleContext())
+                            {
+                                sc.SetFont(FONT_ACTOR_NAMES);
+                                sc.SetStyleColor(ImGuiCol.Button, Rgba(0, 0, 0, 0));
+                                sc.SetStyleColor(ImGuiCol.Text, Rgba(0, 0, 0, 0.2));
 
-                        ImGui.NewLine();
-                        ImGui.NewLine();
-                        ImGui.NewLine();
+                                if (nCards == 0)
+                                {
+                                    ImGui.SetCursorPosX(actorGroupStartX + ((regionWidth / 2) - (CARD_WIDTH / 2)));
+                                }
+
+                                if (ImGui.Button("+", new Vector2(nCards == 0 ? CARD_WIDTH : 30, CARD_HEIGHT)))
+                                {
+                                    Card newcard = CSTACK_DECK.TopCard!;
+                                    newcard.Owner = actor.cstack;
+                                    newcard.FaceUp = true;
+                                }
+                            }
+                        }
                     }
 
-                    ImGui.EndTable();
+                    ImGui.SetCursorPosX(actorGroupStartX);
+                    ImGui.Dummy(new Vector2(regionWidth, 0));
+
+                    ImGui.EndGroup();
+                    ImGui.PopID();
+
+                    ImGui.SameLine();
                 }
 
-                ImGui.PopStyleVar();
+                // TODO only do if more rows
+
+                ImGui.Dummy(new Vector2(0, UserConfig.spaceBetweenRows));
             }
-            ImGui.End();
         }
 
         static readonly Card[] ALL_CARDS =
@@ -869,5 +918,25 @@ namespace ActionCardPal
             new Card(Suit.Joker, Rank.Joker),
             new Card(Suit.Joker, Rank.Joker),
         };
+
+        static Vector4 Rgba(double r, double g, double b, double a)
+        {
+            return new Vector4((float)r, (float)g, (float)b, (float)a);
+        }
+
+        static Vector4 Rgb(double r, double g, double b)
+        {
+            return Rgba(r, g, b, 1.0);
+        }
+
+        static uint Rgba32(double r, double g, double b, double a)
+        {
+            return ImGui.ColorConvertFloat4ToU32(Rgba(r, g, b, a));
+        }
+
+        static uint Rgb32(double r, double g, double b)
+        {
+            return ImGui.ColorConvertFloat4ToU32(Rgb(r, g, b));
+        }
     }
 }
